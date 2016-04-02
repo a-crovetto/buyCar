@@ -6,7 +6,7 @@ from collections import Counter
 import sqlite3
 import datetime
 import traceback
-
+import string
 
 reload(sys)    # to re-enable sys.setdefaultencoding()
 sys.setdefaultencoding('utf-8')
@@ -15,6 +15,8 @@ dolar = 33
 whileFlag = True
 pageCounter = 1
 conn = sqlite3.connect('cars.db')
+conn.text_factory = str
+conn.execute("PRAGMA journal_mode = OFF;")
 
 #fullTechnicalList = []
 #fullTechnicalDataList = []
@@ -22,6 +24,8 @@ conn = sqlite3.connect('cars.db')
 fecha = str(datetime.datetime.now().strftime ("%Y-%m-%d"))
 opener = urllib2.build_opener()
 opener.addheaders = [('User-agent', 'Mozilla/5.0')]
+
+contador = 0
 
 while (whileFlag):
     url = "http://autos.mercadolibre.com.uy/montevideo/_Desde_"+str(pageCounter)+"_OrderId_PRICE_YearRange_1995-0_PriceRange_62000-320000"
@@ -54,9 +58,11 @@ while (whileFlag):
                     # precio '.placePrice .ch-price'
                     priceCoin = soupProduct.select('.placePrice .ch-price')
                     priceCoin = str(priceCoin[0].get_text())
+                    priceCoin = "".join(c for c in priceCoin if c not in ('!','.',':'))
                     priceCoin = priceCoin.split( )
                     coin = priceCoin[0]
                     price = priceCoin[1]
+                    # price.replace('.', '')
 
                     if coin != 'U$S':
                         price = str(int(float(price))/dolar)
@@ -72,13 +78,14 @@ while (whileFlag):
                     description = soupProduct.select('#itemDescription')
                     description = str(description[0].get_text())
 
+                    car = [str(url),fecha,price,title,description]
                     # Inserto estos datos
-                    c.execute("INSERT INTO cars (Link,Fecha,Precio,Titulo,Descripcion ) VALUES ('"+str(url)+"','"+fecha+"','"+price+"','"+title+"','"+description+"')")
+                    c.execute("INSERT INTO cars (Link,Fecha,Precio,Titulo,Descripcion ) VALUES (?,?,?,?,?)",car) #+str(url)+"','"+fecha+"','"+price+"','"+title+"','"+description+
 
                     # Busco el id recie'n ingresado
                     c.execute("select id from cars where link = '"+url+"'")
                     id = c.fetchone()[0]
-
+                    contador += 1
                     # veo los datos tecnicos
                     technicalList = soupProduct.select('.technical-details li .tit')
                     technicalList = [s.get_text() for s in technicalList]
@@ -95,7 +102,7 @@ while (whileFlag):
 
                     if technicalList is not None:
                         for i in range(0,len(technicalList)):
-                            c.execute("INSERT INTO TechnicalDetails (carId, Tipo, Valor ) VALUES ('"+str(id)+"','"+technicalList[i]+"','"+technicalDataList[i]+"')")
+                            c.execute("INSERT INTO TechnicalDetails (carId, Tipo, Valor ) VALUES (?,?,?)",(str(id),technicalList[i],technicalDataList[i])) #'"+str(id)+"','"+technicalList[i]+"','"+technicalDataList[i]+"'
 
                     # Sonido, Confort y seguridad '#techDataHolder .title-details:nth-child(4) span' de a pares los ttulos desde 2
                     # '#techDataHolder .other-details:nth-child(3) span'  listado desde 3
@@ -107,7 +114,7 @@ while (whileFlag):
 
                     if othersList is not None:
                         for i in range(0,len(othersList)):
-                            c.execute("INSERT INTO OtherDetails (carId, detail ) VALUES ('"+str(id)+"','"+othersList[i]+"')")
+                            c.execute("INSERT INTO OtherDetails (carId, detail ) VALUES (?,?)",(str(id),othersList[i])) #'"+str(id)+"','"+othersList[i]+"'
                     conn.commit()
             except Exception as e:
                 print traceback.format_exc()
@@ -117,6 +124,12 @@ while (whileFlag):
         #print Counter(fullTechnicalDataList)
         #print Counter(otherDetailsList)
         pageCounter = pageCounter + 48
+    except urllib2.HTTPError as e:
+        whileFlag = False
+        if e.code != 404:
+            print traceback.format_exc()
     except Exception as e:
         whileFlag = False
+        print traceback.format_exc()
 conn.close()
+print ("Se agregaron "+str(contador)+" autos")
