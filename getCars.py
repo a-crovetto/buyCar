@@ -27,8 +27,12 @@ opener.addheaders = [('User-agent', 'Mozilla/5.0')]
 
 contador = 0
 
+# pegar url de filtro base
+baseURL = "http://autos.mercadolibre.com.uy/montevideo/_OrderId_PRICE_YearRange_1995-0_PriceRange_62000-320000"
+baseURL = baseURL.rsplit('/',1)
+
 while (whileFlag):
-    url = "http://autos.mercadolibre.com.uy/montevideo/_Desde_"+str(pageCounter)+"_OrderId_PRICE_YearRange_1995-0_PriceRange_62000-320000"
+    url = baseURL[0]+"/_Desde_"+str(pageCounter)+baseURL[1]
     print url
     try:
         response = opener.open(url)
